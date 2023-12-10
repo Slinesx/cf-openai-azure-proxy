@@ -1,5 +1,5 @@
 // The name of your Azure OpenAI Resource.
-const resourceName='azureai-adv-services'
+let resourceName='azureai-adv-services'
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -36,6 +36,9 @@ async function handleRequest(request) {
     var path="images/generations"
   } else if (url.pathname === '/v1/completions') {
     var path="completions"
+  } else if (url.pathname === 'v1/audio/transcriptions') {
+    var path="audio/transcriptions"
+    resourceName='azureai-speak-service-instance'
   } else if (url.pathname === '/v1/models') {
     return handleModels(request)
   } else {
@@ -44,12 +47,13 @@ async function handleRequest(request) {
 
   let body;
   let modelName;
+  let isFormData;
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       body = await request.formData();
       modelName = body.get('model');
-      const isFormData = true;
+      isFormData = true;
     } else if (contentType.includes('application/json')) {
       // Handle JSON data
       body = await request.json();
@@ -73,7 +77,7 @@ async function handleRequest(request) {
     });
   }
   
-  if (!FormData){
+  if (!isFormData){
     const payload = {
     method: request.method,
     headers: {
@@ -95,13 +99,22 @@ async function handleRequest(request) {
   stream(response.body, writable);
   return new Response(readable, response);
   } else {
+    const formData = new FormData();
+    for (const [key, value] of body.entries()) {
+      if (value instanceof File) {
+        // Append the file with its original name and type
+        formData.append(key, value, value.name);
+      } else {
+        formData.append(key, value);
+      }
+    }
     const payload = {
     method: request.method,
     headers: {
-      "Content-Type": "multipart/form-data",
+      // "Content-Type": "multipart/form-data",
       "api-key": authKey.replace('Bearer ', ''),
     },
-    body: typeof body === 'object' ? body : new FormData(),
+    body: formData,
   };
 
   let response = await fetch(fetchAPI, payload);
