@@ -45,6 +45,7 @@ async function handleRequest(request) {
   let body;
   let modelName;
   if (request.method === 'POST') {
+    const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       body = await request.formData();
       modelName = body.get('model');
