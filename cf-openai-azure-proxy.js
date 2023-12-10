@@ -1,5 +1,5 @@
 // The name of your Azure OpenAI Resource.
-const resourceName=RESOURCE_NAME
+const resourceName='azureai-adv-services'
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
