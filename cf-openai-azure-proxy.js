@@ -3,15 +3,16 @@ const resourceName=RESOURCE_NAME
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
-    'gpt-3.5-turbo': DEPLOY_NAME_GPT35,
-    'gpt-3.5-turbo-0613': DEPLOY_NAME_GPT35,
-    'gpt-3.5-turbo-1106': DEPLOY_NAME_GPT35,
-    'gpt-3.5-turbo-16k': DEPLOY_NAME_GPT35,
-    'gpt-4': DEPLOY_NAME_GPT4,
-    'gpt-4-0613': DEPLOY_NAME_GPT4,
-    'gpt-4-1106-preview': DEPLOY_NAME_GPT4,
-    'gpt-4-32k': DEPLOY_NAME_GPT4,
-    'dall-e-3': typeof DEPLOY_NAME_DALLE3 !== 'undefined' ? DEPLOY_NAME_DALLE3 : "dalle3",
+    'gpt-3.5-turbo': 'gpt-35-turbo',
+    'gpt-3.5-turbo-0613': 'gpt-35-turbo',
+    'gpt-3.5-turbo-1106': 'gpt-35-turbo-1106',
+    'gpt-3.5-turbo-16k': 'gpt-35-turbo-16k',
+    'gpt-4': 'gpt-4',
+    'gpt-4-0613': 'gpt-4',
+    'gpt-4-1106-preview': 'gpt-4-turbo-1106',
+    'gpt-4-32k': 'gpt-4-32k',
+    'dall-e-3': 'dall-e-3',
+    'whisper-1': 'whisper'
 };
 
 const apiVersion="2023-12-01-preview"
@@ -24,7 +25,7 @@ async function handleRequest(request) {
   if (request.method === 'OPTIONS') {
     return handleOPTIONS(request)
   }
-
+  
   const url = new URL(request.url);
   if (url.pathname.startsWith("//")) {
     url.pathname = url.pathname.replace('/',"")
@@ -42,11 +43,19 @@ async function handleRequest(request) {
   }
 
   let body;
+  let modelName;
   if (request.method === 'POST') {
-    body = await request.json();
+    if (contentType.includes('multipart/form-data')) {
+      body = await request.formData();
+      modelName = body.get('model');
+      const isFormData = true;
+    } else if (contentType.includes('application/json')) {
+      // Handle JSON data
+      body = await request.json();
+      modelName = body?.model;
+    }
   }
-
-  const modelName = body?.model;  
+  
   const deployName = mapper[modelName] || '' 
 
   if (deployName === '') {
@@ -62,8 +71,9 @@ async function handleRequest(request) {
       status: 403
     });
   }
-
-  const payload = {
+  
+  if (!FormData){
+    const payload = {
     method: request.method,
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +93,22 @@ async function handleRequest(request) {
   let { readable, writable } = new TransformStream()
   stream(response.body, writable);
   return new Response(readable, response);
+  } else {
+    const payload = {
+    method: request.method,
+    headers: {
+      "Content-Type": "multipart/form-data",
+      "api-key": authKey.replace('Bearer ', ''),
+    },
+    body: typeof body === 'object' ? body : new FormData(),
+  };
 
+  let response = await fetch(fetchAPI, payload);
+  response = new Response(response.body, response);
+  response.headers.set("Access-Control-Allow-Origin", "*");
+
+  return response;
+  }
 }
 
 function sleep(ms) {
